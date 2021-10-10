@@ -1,0 +1,4 @@
+keyboard==0.13.5
+hidapi==0.10.1
+PyYAML==5.4.1
+pywinauto==0.6.6

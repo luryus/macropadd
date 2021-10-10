@@ -1,24 +1,37 @@
 from typing import List, Optional, Tuple
-import keyboard
 import time
-import hid
 import logging
+from sys import platform
 from threading import Thread, Event
 from queue import Empty, Queue
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
-class HalBase:
+def get_hal():
+    if platform == 'windows':
+        return WindowsHal()
+    else:
+        return NoopHal()
+
+class HalBase(ABC):
     def __init__(self):
         self.key_event_handler = None
         self.encoder_button_handler = None
         self.encoder_handler = None
 
         self.msg_queue = Queue()
+    
+    @abstractmethod
+    def close(self):
+        pass
+
+class NoopHal(HalBase):
+    def close(self):
+        pass
 
 
-class Hal(HalBase):
-
+class WindowsHal(HalBase):
     def __init__(self):
         self.__hid_read_thread = None
         self.__hid_thread_stop_event = Event()
@@ -26,7 +39,7 @@ class Hal(HalBase):
 
         super().__init__()
         self.__register_shortcuts()
-        #self.__start_hid_read_thread()
+        self.__start_hid_read_thread()
         self.__start_hid_sender_thread()
 
     def close(self):
@@ -64,11 +77,13 @@ class Hal(HalBase):
             self.key_event_handler(key)
 
     def __register_shortcuts(self):
+        import keyboard
         for i in range(13, 24+1):
             key = f'F{i}'
             keyboard.add_hotkey(key, lambda k=key: self.__shortcut_handler(k), suppress=True)
 
     def __clear_shortcuts(self):
+        import keyboard
         for i in range(13, 24+1):
             key = f'F{i}'
             keyboard.clear_hotkey(key)
@@ -89,6 +104,7 @@ class Hal(HalBase):
         return None, None
 
     def __hid_send_thread_loop(self):
+        import hid
         logger = logging.getLogger('HID sender')
         # Main loop
         while not self.__hid_thread_stop_event.is_set():
@@ -132,6 +148,7 @@ class Hal(HalBase):
                 logger.error("HID send thread loop failed", exc_info=e)
 
     def __hid_read_thread_loop(self):
+        import hid
         # Main loop
         while not self.__hid_thread_stop_event.is_set():
             try:
@@ -158,7 +175,7 @@ class Hal(HalBase):
                         data = dev.read(64)
                         if data:
                             logger.debug("Received data: %s", data)
-                            parsed_rot, parsed_btn = Hal.__parse_encoder_hid_data(data)
+                            parsed_rot, parsed_btn = WindowsHal.__parse_encoder_hid_data(data)
                             if parsed_rot is not None and self.encoder_handler:
                                 self.encoder_handler(parsed_rot)
                             if parsed_btn is not None and self.encoder_button_handler:

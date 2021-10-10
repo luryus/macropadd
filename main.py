@@ -3,7 +3,7 @@ import hal
 import time
 import logging
 from macros import Layer, create_default_layer, parse_layers
-from active_window import ActiveWindowListener
+from active_window import get_active_window_listener
 from os.path import basename
 
 
@@ -14,7 +14,7 @@ class Macropadd():
     def __init__(self):
         self.active_layers: List[Layer] = []
         self.all_layers: Dict[str, Layer]  = {}
-        self.hal = hal.Hal()
+        self.hal = hal.get_hal()
         self.last_encoder_rot = 0
 
     def run(self):
@@ -25,17 +25,16 @@ class Macropadd():
             self.active_layers.append(self.all_layers['base'])
 
         try:
-            h = hal.Hal()
-            h.key_event_handler = self.handle_key_event
-            h.encoder_handler = self.handle_encoder_event
+            self.hal.key_event_handler = self.handle_key_event
+            self.hal.encoder_handler = self.handle_encoder_event
 
-            l = ActiveWindowListener(self.handle_process_change)
+            l = get_active_window_listener(self.handle_process_change)
             l.listen_forever()
 
             time.sleep(100000)
 
         except KeyboardInterrupt:
-            h.close()
+            self.hal.close()
 
     def handle_key_event(self, key: str):
         layers = self.active_layers.copy()
