@@ -1,0 +1,1 @@
+VALID_KEY_NAMES = [f'F{i}' for i in range(13, 24+1)]

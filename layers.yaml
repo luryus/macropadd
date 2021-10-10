@@ -1,0 +1,31 @@
+base:
+  name: 'Base'
+  F21:
+    name: '^F12'
+    hotkey: 'Ctrl+F12'
+  F22:
+    name: 'Lips'
+    type: 'Lorem ipsum dolor sit amet'
+  F23:
+    name: 'SUBL'
+    activateWindow: 'C:\Program Files\Sublime Text 3\sublime_text.exe'
+
+SublimeText:
+  name: 'SublimeText'
+  application: 'sublime_text.exe'
+  F21:
+    name: 'Jump'
+    hotkey: 'Ctrl+G'
+  F22:
+    name: 'SelA'
+    hotkey: 'Ctrl+A'
+
+Chrome:
+  name: 'Chrome'
+  application: 'chrome.exe'
+  F21:
+    name: 'Game'
+    sequence:
+      - hotkey: 'Ctrl+L'
+      - type: 'chrome://dino'
+      - hotkey: 'Enter'
