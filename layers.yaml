@@ -26,6 +26,8 @@ Chrome:
   F21:
     name: 'Game'
     sequence:
+      delayMs: 20
+      steps:
       - hotkey: 'Ctrl+L'
       - type: 'chrome://dino'
       - hotkey: 'Enter'

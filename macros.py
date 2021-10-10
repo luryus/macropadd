@@ -1,10 +1,11 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractclassmethod, abstractstaticmethod
 from typing import Dict, List
 import keyboard
 import yaml
 from keys import VALID_KEY_NAMES
 from logging import getLogger
 import time
+from sys import platform
 
 logger = getLogger(__name__)
 
@@ -14,6 +15,10 @@ class BaseAction(ABC):
 
     @abstractmethod
     def run(self):
+        pass
+
+    @abstractstaticmethod
+    def parse(data: dict):
         pass
 
 class HotkeyAction(BaseAction):
@@ -27,6 +32,12 @@ class HotkeyAction(BaseAction):
     def run(self):
         keyboard.send(self.hotkey)
 
+    @staticmethod
+    def parse(data: dict):
+        if 'hotkey' in data:
+            return HotkeyAction(data['hotkey'], data.get('name', ''))
+        return None
+
 class TypeAction(BaseAction):
     def __init__(self, text: str, name: str):
         super().__init__(name)
@@ -38,37 +49,68 @@ class TypeAction(BaseAction):
     def run(self):
         keyboard.write(self.text)
 
+    def parse(data: dict):
+        if 'type' in data:
+            return TypeAction(data['type'], data.get('name', ''))
+        return None
+
 class SequentialAction(BaseAction):
-    def __init__(self, actions: str, name: str):
+    def __init__(self, actions: str, name: str, delay_ms: int):
         super().__init__(name)
         self.actions = actions
+        self.delay_ms = delay_ms
 
     def __str__(self):
         return f'Sequence(\n  ' + '\n  '.join(map(str, self.actions)) + ')'
 
     def run(self):
+        delay = float(self.delay_ms) / 1000
         for a in self.actions:
-            time.sleep(0.01)
+            time.sleep(delay)
             a.run()
+
+    def parse(data: dict):
+        if 'sequence' in data:
+            step_actions = []
+            for step in data['sequence']['steps']:
+                a = _parse_action(step)
+                if a is None:
+                    raise ValueError('Could not parse step action')
+                step_actions.append(a)
+            return SequentialAction(step_actions, data.get('name', ''), int(data.get('delayMs', 20)))
+
+        return None
+
 
 class ActivateWindowAction(BaseAction):
     def __init__(self, program_path: str, name: str):
         super().__init__(name)
-        import pywinauto
         self.program_path = program_path
-        self.a = pywinauto.Application(backend='win32', allow_magic_lookup=False)
     
     def __str__(self):
         return f'Activate({self.program_path})'
 
     def run(self):
+        if platform == 'windows':
+            self.__run_windows()
+        else:
+            pass
+
+    def __run_windows(self):
+        import pywinauto
         from pywinauto.application import ProcessNotFoundError
+        self.a = pywinauto.Application(backend='win32', allow_magic_lookup=False)
         try:
             self.a.connect(path=self.program_path, timeout=0.1)
             self.a.top_window().set_focus()
         except ProcessNotFoundError:
             self.a.start(self.program_path)
             self.a.top_window().set_focus()
+
+    def parse(data: dict):
+        if 'activateWindow' in data:
+            return ActivateWindowAction(data['activateWindow'], data.get('name', ''))
+        return None
 
 # -------
 
@@ -98,7 +140,7 @@ class Layer:
             if k not in VALID_KEY_NAMES:
                 continue
             
-            a = Layer.__parse_action(action_spec)
+            a = _parse_action(action_spec)
 
             if a is None:
                 logger.warn("Invalid action: %s", action_spec)
@@ -107,33 +149,6 @@ class Layer:
 
         return l
 
-    @staticmethod
-    def __parse_action(spec: dict):
-        if not isinstance(spec, dict):
-            logger.warn("Invalid action: %s", spec)
-            return None
-
-        name = ''
-        if 'name' in spec and isinstance(spec['name'], str):
-            name = spec['name']
-
-        if 'hotkey' in spec:
-            return HotkeyAction(spec['hotkey'], name)
-        elif 'type' in spec:
-            return TypeAction(spec['type'], name)
-        elif 'activateWindow' in spec:
-            return ActivateWindowAction(spec['activateWindow'], name)
-        elif 'sequence' in spec:
-            step_specs = spec['sequence']
-            step_actions = []
-            for s in step_specs:
-                a = Layer.__parse_action(s)
-                if a is None:
-                    return None
-                step_actions.append(a)
-            return SequentialAction(step_actions, name)
-
-        return None
 
     def get_key_names(self) -> List[str]:
         o = []
@@ -191,3 +206,20 @@ def parse_layers(layer_yaml_file: str) -> Dict[str, Layer]:
         l = Layer.from_spec_dict(layer_spec)
         layers[layer_key] = l
     return layers
+
+
+def _parse_action(spec: dict):
+    if not isinstance(spec, dict):
+        logger.warn("Invalid action: %s", spec)
+        return None
+
+    a = HotkeyAction.parse(spec) or \
+        TypeAction.parse(spec) or \
+        ActivateWindowAction.parse(spec) or \
+        SequentialAction.parse(spec)
+
+    if a is None:
+        logger.warn("Invalid action %s", spec)
+        raise ValueError("Invalid action: %s", spec)
+
+    return a
