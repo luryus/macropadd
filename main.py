@@ -110,7 +110,8 @@ class Macropadd():
 
 
 def main():    
-    logging.basicConfig(level=logging.DEBUG)
+    FORMAT = '%(asctime)-15s [%(name)s %(levelname)s] %(message)s'
+    logging.basicConfig(level=logging.DEBUG, format=FORMAT)
     m = Macropadd()
 
     m.run()
