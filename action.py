@@ -1,8 +1,5 @@
-from abc import ABC, abstractmethod, abstractclassmethod, abstractstaticmethod
-from typing import Dict, List
+from abc import ABC, abstractmethod, abstractstaticmethod
 import keyboard
-import yaml
-from keys import VALID_KEY_NAMES
 from logging import getLogger
 import time
 from sys import platform
@@ -73,7 +70,7 @@ class SequentialAction(BaseAction):
         if 'sequence' in data:
             step_actions = []
             for step in data['sequence']['steps']:
-                a = _parse_action(step)
+                a = parse_action(step)
                 if a is None:
                     raise ValueError('Could not parse step action')
                 step_actions.append(a)
@@ -112,103 +109,7 @@ class ActivateWindowAction(BaseAction):
             return ActivateWindowAction(data['activateWindow'], data.get('name', ''))
         return None
 
-# -------
-
-class Layer:
-    def __init__(self, name: str):
-        self.name = name
-        self.application = None
-        self.key_actions: Dict[str, BaseAction] = {}
-        self.encoder_inc_action: BaseAction = None
-        self.encoder_dec_action: BaseAction = None
-        self.encoder_btn_action: BaseAction = None
-
-    def __str__(self):
-        return f'Layer({self.name})'
-    
-    def __repr__(self):
-        return str(self)
-
-    @staticmethod
-    def from_spec_dict(spec: dict):
-        l = Layer(spec['name'])
-
-        if 'application' in spec:
-            l.application = spec['application']
-
-        for k, action_spec in spec.items():
-            if k not in VALID_KEY_NAMES:
-                continue
-            
-            a = _parse_action(action_spec)
-
-            if a is None:
-                logger.warn("Invalid action: %s", action_spec)
-                continue
-            l.key_actions[k] = a
-
-        return l
-
-
-    def get_key_names(self) -> List[str]:
-        o = []
-        for k in VALID_KEY_NAMES:
-            if k in self.key_actions:
-                o.append(self.key_actions[k].name)
-            else:
-                o.append(None)
-        return o
-
-    def run_action_for_key(self, key: str) -> bool:
-        if key not in self.key_actions:
-            return False
-        
-        action = self.key_actions[key]
-        action.run()
-        logger.debug("Ran action %s", action)
-        return True
-
-    def run_action_for_encoder_inc(self) -> bool:
-        if self.encoder_inc_action:
-            self.encoder_inc_action.run()
-            logger.debug("Ran action %s", self.encoder_inc_action)
-            return True
-        return False
-
-    def run_action_for_encoder_dec(self) -> bool:
-        if self.encoder_dec_action:
-            self.encoder_dec_action.run()
-            logger.debug("Ran action %s", self.encoder_dec_action)
-            return True
-        return False
-
-    def run_action_for_encoder_btn(self) -> bool:
-        if self.encoder_btn_action:
-            self.encoder_btn_action.run()
-            logger.debug("Ran action %s", self.encoder_btn_action)
-            return True
-        return False
-
-
-def create_default_layer() -> Layer:
-    layer = Layer("default")
-    for i in range(13, 24+1):
-        key_name = f'F{i}'
-        layer.key_actions[key_name] = HotkeyAction(key_name, key_name)
-    return layer
-
-def parse_layers(layer_yaml_file: str) -> Dict[str, Layer]:
-    with open(layer_yaml_file, 'r') as f:
-        file_content: dict = yaml.load(f)
-    
-    layers = {}
-    for layer_key, layer_spec in file_content.items():
-        l = Layer.from_spec_dict(layer_spec)
-        layers[layer_key] = l
-    return layers
-
-
-def _parse_action(spec: dict):
+def parse_action(spec: dict):
     if not isinstance(spec, dict):
         logger.warn("Invalid action: %s", spec)
         return None

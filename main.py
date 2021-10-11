@@ -2,9 +2,10 @@ from typing import Dict, List
 import hal
 import time
 import logging
-from macros import Layer, create_default_layer, parse_layers
+from layer import Layer, LayerFileWatcher, create_default_layer, parse_layers
 from active_window import get_active_window_listener
 from os.path import basename
+from threading import Event
 
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,21 @@ class Macropadd():
         self.all_layers: Dict[str, Layer]  = {}
         self.hal = hal.get_hal()
         self.last_encoder_rot = 0
+        self.stop_event = Event()
 
-    def run(self):
-        self.all_layers = parse_layers('layers.yaml')
-        self.active_layers = [create_default_layer()]
-
+    def set_layers(self, layers: Dict[str, Layer]):
+        self.all_layers = layers
+        new_active = [create_default_layer()]
         if 'base' in self.all_layers:
             self.active_layers.append(self.all_layers['base'])
+        self.active_layers = new_active
+
+
+    def run(self):
+        self.stop_event = Event()
+        self.all_layers = parse_layers('layers.yaml')
+
+        LayerFileWatcher('layers.yaml', self.set_layers).start()
 
         try:
             self.hal.key_event_handler = self.handle_key_event
@@ -31,7 +40,7 @@ class Macropadd():
             l = get_active_window_listener(self.handle_process_change)
             l.listen_forever()
 
-            time.sleep(100000)
+            self.stop_event.wait()
 
         except KeyboardInterrupt:
             self.hal.close()
@@ -109,7 +118,7 @@ class Macropadd():
             self.hal.send_key_names(key_names)
 
 
-def main():    
+def main():
     FORMAT = '%(asctime)-15s [%(name)s %(levelname)s] %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=FORMAT)
     m = Macropadd()
