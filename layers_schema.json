@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lkoskela.com/macropad-layers.yml",
+  "title": "Macropadd layer configuration",
+  "description": "",
+  "type": "object",
+  "required": ["base"],
+  "properties": {
+    "base": {
+      "$ref": "#/definitions/layer"
+    }
+  },
+  "patternProperties": {
+    ".+": {
+      "$ref": "#/definitions/layer"
+    }
+  },
+  "additionalProperties": {},
+  "definitions": {
+    "action": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/sequenceAction"
+        },
+        {
+          "$ref": "#/definitions/hotkeyAction"
+        },
+        {
+          "$ref": "#/definitions/typeAction"
+        },
+        {
+          "$ref": "#/definitions/activateWindowAction"
+        }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "description": "Layer",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the layer"
+        },
+        "application": {
+          "type": "string",
+          "description": "Name of executable for which this layer is activated"
+        },
+        "F13": {
+          "$ref": "#/definitions/action"
+        },
+        "F14": {
+          "$ref": "#/definitions/action"
+        },
+        "F15": {
+          "$ref": "#/definitions/action"
+        },
+        "F16": {
+          "$ref": "#/definitions/action"
+        },
+        "F17": {
+          "$ref": "#/definitions/action"
+        },
+        "F18": {
+          "$ref": "#/definitions/action"
+        },
+        "F19": {
+          "$ref": "#/definitions/action"
+        },
+        "F20": {
+          "$ref": "#/definitions/action"
+        },
+        "F21": {
+          "$ref": "#/definitions/action"
+        },
+        "F22": {
+          "$ref": "#/definitions/action"
+        },
+        "F23": {
+          "$ref": "#/definitions/action"
+        },
+        "F24": {
+          "$ref": "#/definitions/action"
+        },
+        "dialInc": {
+          "$ref": "#/definitions/action"
+        },
+        "dialDec": {
+          "$ref": "#/definitions/action"
+        },
+        "dialClick": {
+          "$ref": "#/definitions/action"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "baseAction": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 4
+        }
+      }
+    },
+    "hotkeyAction": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/baseAction"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hotkey": {
+              "type": "string"
+            }
+          },
+          "required": ["hotkey"]
+        }
+      ]
+    },
+    "typeAction": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/baseAction"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "activateWindowAction": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/baseAction"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "activateWindow": {
+              "type": "string"
+            }
+          },
+          "required": ["activateWindow"]
+        }
+      ]
+    },
+    "sequenceAction": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/baseAction"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sequence": {
+              "type": "object",
+              "properties": {
+                "delayMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/action"
+                  }
+                }
+              },
+              "required": ["steps"]
+            }
+          },
+          "required": ["sequence"]
+        }
+      ]
+    }
+  }
+}

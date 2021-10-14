@@ -1,0 +1,6 @@
+{
+    "python.formatting.provider": "black",
+    "yaml.schemas": {
+        "layers_schema.json": "layers.yaml"
+    }
+}
