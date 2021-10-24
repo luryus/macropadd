@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 logger = logging.getLogger(__name__)
 
 def get_hal():
-    if platform == 'windows':
+    if platform == 'win32':
         return WindowsHal()
     else:
         return NoopHal()
@@ -47,10 +47,10 @@ class WindowsHal(HalBase):
         self.__clear_shortcuts()
 
     def send_profile_name(self, name: str):
-        data = bytes([3]) + name[:8].encode('ascii', errors='ignore')
-        if len(data) < 9:
-            data += b'\0' * (9 - len(data)) 
-        assert len(data) == 9
+        data = bytes([3]) + name[:18].encode('ascii', errors='ignore')
+        if len(data) < 19:
+            data += b'\0' * (19 - len(data)) 
+        assert len(data) == 19
         self.msg_queue.put(data)
 
     def send_key_names(self, key_names: List[str]):
@@ -133,7 +133,7 @@ class WindowsHal(HalBase):
                             continue
                     
                         if not isinstance(msg, list) and not isinstance(msg, bytes):
-                            logger.warn("Invalid message %s", msg)
+                            logger.warning("Invalid message %s", msg)
                             continue
 
                         assert msg[0] in [0x03, 0x04]

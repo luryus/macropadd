@@ -4,6 +4,7 @@ from typing import Callable, Dict, List
 from keys import VALID_KEY_NAMES
 from logging import getLogger
 import time
+from os.path import dirname
 from watchdog.observers import Observer
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
 
@@ -42,7 +43,7 @@ class Layer:
             a = parse_action(action_spec)
 
             if a is None:
-                logger.warn("Invalid action: %s", action_spec)
+                logger.warning("Invalid action: %s", action_spec)
                 continue
             l.key_actions[k] = a
 
@@ -118,6 +119,9 @@ class LayerFileWatcher:
             self.last_trigger_time = 0
 
         def on_modified(self, event: FileModifiedEvent):
+            if event.src_path != self.filename:
+                return
+
             # Debounce the modification events
             if time.time() - self.last_trigger_time < 0.5:
                 return
@@ -128,7 +132,7 @@ class LayerFileWatcher:
                 new_layers = parse_layers(self.filename)
                 self.cb(new_layers)
             except Exception as e:
-                logger.warn("Loading new layers failed: %s", e)
+                logger.warning("Loading new layers failed: %s", e)
 
     def __init__(
         self, filename: str, new_layers_callback: Callable[[Dict[str, Layer]], None]
@@ -141,6 +145,7 @@ class LayerFileWatcher:
             self.filename, self.new_layers_callback
         )
         observer = Observer()
-        observer.schedule(event_handler, self.filename, False)
+        observer.schedule(event_handler, path=dirname(self.filename), recursive=False)
         observer.setDaemon(True)
+        observer.setName("layer observer")
         observer.start()

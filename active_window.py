@@ -12,7 +12,7 @@ _CallbackFunctionType = Callable[[str], None]
 
 
 def get_active_window_listener(callback: _CallbackFunctionType):
-    if platform == 'windows':
+    if platform == 'win32':
         return WindowsActiveWindowListener(callback)
     else:
         return NoopActiveWindowListener(callback)
@@ -75,14 +75,14 @@ class WindowsActiveWindowListener(BaseActiveWindowListener):
         user32.GetWindowTextA(hwnd, buff, length + 1)
         logger.debug('Active window %s', buff.value)
 
-        pid = self._get_process_id(dwEventThread, hwnd)
+        pid = WindowsActiveWindowListener._get_process_id(dwEventThread, hwnd)
         logger.debug('Active window PID %d', pid)
         if pid is not None:
-            path = self._get_process_filename(pid)
+            path = WindowsActiveWindowListener._get_process_filename(pid)
             logger.debug('Active window path %s', path)
             self.process_change_callback(path)
         
-        
+    @staticmethod
     def _get_process_id(dwEventThread, hwnd):
         THREAD_QUERY_LIMITED_INFORMATION = 0x0800
         kernel32 = ctypes.windll.kernel32
@@ -92,17 +92,17 @@ class WindowsActiveWindowListener(BaseActiveWindowListener):
             try:
                 processID = kernel32.GetProcessIdOfThread(hThread)
                 if not processID:
-                    logger.warn("Could not get process for thread %s: %s" % (hThread, ctypes.WinError()))
+                    logger.warning("Could not get process for thread %s: %s" % (hThread, ctypes.WinError()))
                     return None
                 else:
                     return processID
             finally:
                 kernel32.CloseHandle(hThread)
         else:
-            logger.warn("Could not open thread")
+            logger.warning("Could not open thread")
             return None
 
-
+    @staticmethod
     def _get_process_filename(pid):
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
         kernel32 = ctypes.windll.kernel32

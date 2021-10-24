@@ -88,7 +88,7 @@ class ActivateWindowAction(BaseAction):
         return f'Activate({self.program_path})'
 
     def run(self):
-        if platform == 'windows':
+        if platform == 'win32':
             self.__run_windows()
         else:
             pass
@@ -111,7 +111,7 @@ class ActivateWindowAction(BaseAction):
 
 def parse_action(spec: dict):
     if not isinstance(spec, dict):
-        logger.warn("Invalid action: %s", spec)
+        logger.warning("Invalid action: %s", spec)
         return None
 
     a = HotkeyAction.parse(spec) or \
@@ -120,7 +120,7 @@ def parse_action(spec: dict):
         SequentialAction.parse(spec)
 
     if a is None:
-        logger.warn("Invalid action %s", spec)
+        logger.warning("Invalid action %s", spec)
         raise ValueError("Invalid action: %s", spec)
 
     return a
