@@ -3,3 +3,4 @@ hidapi==0.10.1
 PyYAML==5.4.1
 pywinauto==0.6.6
 watchdog==2.1.6
+pystray==0.18.0

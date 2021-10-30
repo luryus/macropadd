@@ -1,6 +1,8 @@
+import threading
 from typing import Dict, List
 import hal
 import time
+import trayicon
 import logging
 from layer import Layer, LayerFileWatcher, create_default_layer, parse_layers
 from active_window import get_active_window_listener
@@ -40,11 +42,21 @@ class Macropadd():
             l.listen_forever()
             logger.info("Macropadd running")
 
-            while True:
-                time.sleep(1)
+            sysicon_thread: threading.Thread
+            sysicon_thread, sysicon = trayicon.run(self.layer_file)
 
+            # We stop for two reasons:
+            # - KeyboardInterrupt or some other exception
+            # - sysicon_thread stopped == quit from icon
+            while sysicon_thread.is_alive():
+                sysicon_thread.join(timeout=1.0)
         except KeyboardInterrupt:
+            pass
+        finally:
             self.hal.close()
+            sysicon.stop()
+            sysicon_thread.join()
+
 
     def handle_key_event(self, key: str):
         layers = self.active_layers.copy()
@@ -121,7 +133,7 @@ class Macropadd():
 
 def main():
     FORMAT = '%(asctime)-15s [%(name)s %(levelname)s] %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+    logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = ArgumentParser()
     parser.add_argument('--layers', default="layers.yaml", type=str, help="The layer file to use")
