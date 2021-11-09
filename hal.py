@@ -125,7 +125,7 @@ class WindowsHal(HalBase):
                 dev.set_nonblocking(True)
 
                 try:
-                    logger.debug("Connected to %s", dev.get_product_string())
+                    logger.info("Connected to %s", dev.get_product_string())
                     while not self.__hid_thread_stop_event.is_set():
                         try:
                             msg = self.msg_queue.get(block=True, timeout=1)

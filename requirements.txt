@@ -1,6 +1,9 @@
-keyboard==0.13.5
+comtypes==1.1.10
 hidapi==0.10.1
-PyYAML==5.4.1
-pywinauto==0.6.6
-watchdog==2.1.6
+keyboard==0.13.5
+Pillow==8.4.0
 pystray==0.18.0
+pywin32==301
+PyYAML==5.4.1
+six==1.16.0
+watchdog==2.1.6

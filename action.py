@@ -3,6 +3,11 @@ import keyboard
 from logging import getLogger
 import time
 from sys import platform
+import os.path
+import os
+
+if platform == 'win32':
+    import win32utils
 
 logger = getLogger(__name__)
 
@@ -94,15 +99,24 @@ class ActivateWindowAction(BaseAction):
             pass
 
     def __run_windows(self):
-        import pywinauto
-        from pywinauto.application import ProcessNotFoundError
-        self.a = pywinauto.Application(backend='win32', allow_magic_lookup=False)
-        try:
-            self.a.connect(path=self.program_path, timeout=0.1)
-            self.a.top_window().set_focus()
-        except ProcessNotFoundError:
-            self.a.start(self.program_path)
-            self.a.top_window().set_focus()
+        found = False
+        def enum_callback(hwnd, lParam) -> bool:
+            nonlocal found
+            pid = win32utils.get_window_process_id(hwnd)
+            process_file = win32utils.get_process_filename(pid)
+            if process_file and process_file == os.path.realpath(self.program_path):
+                found = True
+                win32utils.set_foreground_window(hwnd)
+                return False
+            return True
+        
+        win32utils.enum_windows(enum_callback)
+
+        if found:
+            return
+
+        os.startfile(self.program_path)
+        
 
     def parse(data: dict):
         if 'activateWindow' in data:
