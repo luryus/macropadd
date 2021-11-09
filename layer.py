@@ -37,15 +37,20 @@ class Layer:
             l.application = spec["application"]
 
         for k, action_spec in spec.items():
-            if k not in VALID_KEY_NAMES:
+            if k in ['name', 'application']:
                 continue
-
             a = parse_action(action_spec)
-
             if a is None:
                 logger.warning("Invalid action: %s", action_spec)
                 continue
-            l.key_actions[k] = a
+            if k in VALID_KEY_NAMES:
+                l.key_actions[k] = a
+            elif k == 'dialInc':
+                l.encoder_inc_action = a
+            elif k == 'dialDec':
+                l.encoder_dec_action = a
+            elif k == 'dialClick':
+                l.encoder_btn_action = a
 
         return l
 

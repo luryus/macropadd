@@ -18,7 +18,8 @@ class Macropadd():
         self.active_layers: List[Layer] = []
         self.all_layers: Dict[str, Layer]  = {}
         self.hal = hal.get_hal()
-        self.last_encoder_rot = 0
+        self.last_encoder_rot = None
+        self.last_encoder_btn_state = False
         self.layer_file = layer_file
 
     def set_layers(self, layers: Dict[str, Layer]):
@@ -37,6 +38,7 @@ class Macropadd():
         try:
             self.hal.key_event_handler = self.handle_key_event
             self.hal.encoder_handler = self.handle_encoder_event
+            self.hal.encoder_button_handler = self.handle_encoder_button
 
             l = get_active_window_listener(self.handle_process_change)
             l.listen_forever()
@@ -80,20 +82,22 @@ class Macropadd():
         logger.warning("Unhandled encoder dec event")
 
     def handle_encoder_event(self, val: int):
-        if self.last_encoder_rot < val:
-            logger.debug(f'{self.last_encoder_rot=} < {val=}')
-            self.handle_encoder_inc()
-        else:
-            self.handle_encoder_dec()
+        if self.last_encoder_rot is not None:
+            if self.last_encoder_rot < val:
+                self.handle_encoder_inc()
+            elif self.last_encoder_rot > val:
+                self.handle_encoder_dec()
 
         self.last_encoder_rot = val
 
-    def handle_encoder_button(self, layers: List[Layer]):
-        layers = self.active_layers.copy()
-        for l in reversed(layers):
-            if l.run_action_for_encoder_btn():
-                return
-        logger.warning("Unhandled encoder btn event")
+    def handle_encoder_button(self, state: bool):
+        if state and state != self.last_encoder_btn_state:
+            layers = self.active_layers.copy()
+            for l in reversed(layers):
+                if l.run_action_for_encoder_btn():
+                    return
+            logger.warning("Unhandled encoder btn event")
+        self.last_encoder_btn_state = state
 
     def handle_process_change(self, path):
         new_active = self.active_layers.copy()
