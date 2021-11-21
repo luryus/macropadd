@@ -95,3 +95,6 @@ def set_foreground_window(hwnd):
 def enum_windows(callback):
     cb = WNDENUMPROC(callback)
     user32.EnumWindows(cb, 0)
+
+def is_window_visible(hwnd) -> bool:
+    return user32.IsWindowVisible(hwnd)
