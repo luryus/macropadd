@@ -83,9 +83,15 @@ class Macropadd():
 
     def handle_encoder_event(self, val: int):
         if self.last_encoder_rot is not None:
-            if self.last_encoder_rot < val:
+            # Simulate C's (int8_t)(before - after) where before and after are uint8_t
+            diff = (val - self.last_encoder_rot) & 0xff
+            diff = diff - 256 if diff > 127 else diff
+            logger.debug("Dial diff %d", diff)
+            while diff > 0:
+                diff -= 1
                 self.handle_encoder_inc()
-            elif self.last_encoder_rot > val:
+            while diff < 0:
+                diff += 1
                 self.handle_encoder_dec()
 
         self.last_encoder_rot = val
