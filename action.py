@@ -99,24 +99,31 @@ class ActivateWindowAction(BaseAction):
             pass
 
     def __run_windows(self):
-        found = False
+        found_hwnd = None
         def enum_callback(hwnd, lParam) -> bool:
-            nonlocal found
+            nonlocal found_hwnd
             if not win32utils.is_window_visible(hwnd):
                 # Skip hidden windows
                 return True
             pid = win32utils.get_window_process_id(hwnd)
             process_file = win32utils.get_process_filename(pid)
             if process_file and process_file == os.path.realpath(self.program_path):
-                found = True
-                logger.debug("Setting window %s to foreground", hwnd)
-                win32utils.set_foreground_window(hwnd)
+                found_hwnd = hwnd
                 return False
             return True
         
         win32utils.enum_windows(enum_callback)
 
-        if found:
+        if found_hwnd:
+            if win32utils.get_foreground_window() == found_hwnd:
+                logger.debug("Window %s already in foreground", found_hwnd)
+                return
+
+            if win32utils.is_minimized(found_hwnd):
+                win32utils.restore_minimized_window(found_hwnd)
+
+            logger.debug("Setting window %s to foreground", found_hwnd)
+            win32utils.set_foreground_window(found_hwnd)
             return
 
         logger.debug("Existing window not found for %s, launching...", self.program_path)

@@ -1,5 +1,6 @@
 import ctypes
 from logging import getLogger
+from typing import Optional
 
 WINEVENT_OUTOFCONTEXT = 0x0000
 EVENT_SYSTEM_FOREGROUND = 0x0003
@@ -92,9 +93,34 @@ def get_window_process_id(hwnd):
 def set_foreground_window(hwnd):
     user32.SetForegroundWindow(hwnd)
 
+def get_foreground_window():
+    return user32.GetForegroundWindow()
+
 def enum_windows(callback):
     cb = WNDENUMPROC(callback)
     user32.EnumWindows(cb, 0)
 
+def is_minimized(hwnd):
+    return user32.IsIconic(hwnd)
+
+def restore_minimized_window(hwnd):
+    SW_RESTORE = 9
+    return user32.ShowWindow(hwnd, SW_RESTORE)
+
 def is_window_visible(hwnd) -> bool:
     return user32.IsWindowVisible(hwnd)
+
+def register_hotkey(id, key, modifiers) -> bool:
+    return user32.RegisterHotKey(None, id, modifiers, key)
+
+def unregister_hotkey(id) -> bool:
+    return user32.UnregisterHotKey(None, id)
+
+def get_message() -> ctypes.wintypes.MSG:
+    msg = ctypes.wintypes.MSG()
+    if user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) != 0:
+        return msg
+    return None
+
+def get_last_error() -> Optional[ctypes.WinError]:
+    return ctypes.WinError(ctypes.get_last_error())

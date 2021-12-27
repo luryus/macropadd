@@ -142,8 +142,8 @@ class Macropadd():
 
 
 def main():
-    FORMAT = '%(asctime)-15s [%(name)s %(levelname)s] %(message)s'
-    logging.basicConfig(level=logging.INFO, format=FORMAT)
+    FORMAT='{asctime} [{name} {levelname}] <thread {threadName}> {message}'
+    logging.basicConfig(level=logging.DEBUG, format=FORMAT, style='{')
 
     parser = ArgumentParser()
     parser.add_argument('--layers', default="layers.yaml", type=str, help="The layer file to use")

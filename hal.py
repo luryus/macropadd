@@ -36,15 +36,15 @@ class WindowsHal(HalBase):
         self.__hid_read_thread = None
         self.__hid_thread_stop_event = Event()
         self.__hid_send_thread = None
+        self.__global_hotkey_thread = None
 
         super().__init__()
-        self.__register_shortcuts()
+        self.__start_hotkey_handler_thread()
         self.__start_hid_read_thread()
         self.__start_hid_sender_thread()
 
     def close(self):
         self.__hid_thread_stop_event.set()
-        self.__clear_shortcuts()
 
     def send_profile_name(self, name: str):
         data = bytes([3]) + name[:18].encode('ascii', errors='ignore')
@@ -76,17 +76,9 @@ class WindowsHal(HalBase):
             logger.debug("Sending keypress %s to handler", key)
             self.key_event_handler(key)
 
-    def __register_shortcuts(self):
-        import keyboard
-        for i in range(13, 24+1):
-            key = f'F{i}'
-            keyboard.add_hotkey(key, lambda k=key: self.__shortcut_handler(k), suppress=True)
-
-    def __clear_shortcuts(self):
-        import keyboard
-        for i in range(13, 24+1):
-            key = f'F{i}'
-            keyboard.clear_hotkey(key)
+    def __start_hotkey_handler_thread(self):
+        self.__global_hotkey_thread = Thread(None, self.__global_hotkey_thread_loop, name="hotkey_thread", daemon=True)
+        self.__global_hotkey_thread.start()
 
     def __start_hid_read_thread(self):
         self.__hid_read_thread = Thread(None, self.__hid_read_thread_loop, name="hid_thread", daemon=True)
@@ -187,3 +179,38 @@ class WindowsHal(HalBase):
 
             except IOError as e:
                 print(e)
+
+    def __global_hotkey_thread_loop(self):
+        import win32utils
+        def reg_hotkeys():
+            MOD_NOREPEAT = 0x4000
+            for n in range(13, 24+1):
+                # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
+                # https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+                if not win32utils.register_hotkey(n, 0x7c - 13 + n, MOD_NOREPEAT):
+                    raise win32utils.get_last_error()
+        def unreg_hotkeys():
+            for n in range(13, 24+1):
+                if not win32utils.unregister_hotkey(n):
+                    raise win32utils.get_last_error()
+
+        # Register F13 - F24 as global hotkeys
+        reg_hotkeys()
+
+        # The WM_HOTKEY messages are delivered to this thread. Listen to them in a loop.
+        WM_HOTKEY = 0x0312
+        while msg := win32utils.get_message():
+            # This seems to work on 64-bit windows, don't care about 32-bit
+            key = msg.lParam >> 16
+            mod = msg.lParam & 0xffff
+            if 0x7c <= key <= 0x7c+11:
+                # Key is F<n>
+                n = key - 0x7c + 13
+                logger.debug("Received hotkey msg for F%s", n)
+
+                # Disable global hotkeys while handling the message.
+                # This way we will not get into a loop if an action simulates Fxx keypress
+                unreg_hotkeys()
+                self.__shortcut_handler(f'F{n}')
+                reg_hotkeys()
+            
