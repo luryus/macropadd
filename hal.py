@@ -133,7 +133,9 @@ class WindowsHal(HalBase):
                         logger.debug("Sending %d byte message %s", len(msg), msg)
 
                         res = dev.write(msg)
-                        logger.debug("Send result %d", res)
+                        if res == -1:
+                            logger.warn("HID write errored (%s). Device probably disconnected. Reconnecting...", dev.error())
+                            break
                 finally:
                     dev.close()
             except IOError as e:
