@@ -45,6 +45,9 @@ class WindowsActiveWindowListener(BaseActiveWindowListener):
         win32utils.handle_messages_forever()
 
     def _callback(self, hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
+        if event != win32utils.EVENT_SYSTEM_FOREGROUND and event != win32utils.EVENT_SYSTEM_MINIMIZEEND:
+            return
+
         logger.debug('Active window %s', win32utils.get_window_text(hwnd))
 
         pid = win32utils.get_thread_process_id(dwEventThread)

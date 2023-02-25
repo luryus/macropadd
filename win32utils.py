@@ -4,6 +4,7 @@ from typing import Optional
 
 WINEVENT_OUTOFCONTEXT = 0x0000
 EVENT_SYSTEM_FOREGROUND = 0x0003
+EVENT_SYSTEM_MINIMIZEEND = 0x0017
 
 logger = getLogger(__name__)
 
@@ -27,7 +28,7 @@ def set_win_event_hook(callback):
     user32.SetWinEventHook.restype = ctypes.wintypes.HANDLE
     hook = user32.SetWinEventHook(
         EVENT_SYSTEM_FOREGROUND,
-        EVENT_SYSTEM_FOREGROUND,
+        EVENT_SYSTEM_MINIMIZEEND,
         0,
         WinEventProc,
         0,
