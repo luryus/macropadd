@@ -1,9 +1,9 @@
-comtypes==1.1.11
-hidapi==0.11.2
+comtypes==1.1.14
+hidapi==0.13.1
 keyboard==0.13.5
-Pillow==9.1.0
-pystray==0.19.3
-pywin32==303
+Pillow==9.4.0
+pystray==0.19.4
+pywin32==305
 PyYAML==6.0.0
 six==1.16.0
-watchdog==2.1.7
+watchdog==2.3.0
