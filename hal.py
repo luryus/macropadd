@@ -3,7 +3,7 @@ import time
 import logging
 from sys import platform
 from threading import Thread, Event
-from queue import Empty, Queue
+from queue import Empty, Queue, Full
 from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class HalBase(ABC):
         self.encoder_button_handler = None
         self.encoder_handler = None
 
-        self.msg_queue = Queue()
+        self.msg_queue = Queue(maxsize=6)
     
     @abstractmethod
     def close(self):
@@ -51,7 +51,10 @@ class WindowsHal(HalBase):
         if len(data) < 19:
             data += b'\0' * (19 - len(data)) 
         assert len(data) == 19
-        self.msg_queue.put(data)
+        try:
+            self.msg_queue.put(data, timeout=0.1)
+        except Full:
+            pass
 
     def send_key_names(self, key_names: List[str]):
         data = b'\04'
@@ -69,7 +72,10 @@ class WindowsHal(HalBase):
             data += name.encode('ascii', errors='ignore')
         
         assert len(data) == (1 + 4*12)
-        self.msg_queue.put(data)
+        try:
+            self.msg_queue.put(data, timeout=0.1)
+        except Full:
+            pass
 
     def __shortcut_handler(self, key: str):
         if self.key_event_handler is not None:
