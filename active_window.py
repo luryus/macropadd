@@ -24,7 +24,7 @@ def get_active_window_listener(callback: _CallbackFunctionType):
 class BaseActiveWindowListener(ABC):
     def __init__(self, callback: _CallbackFunctionType):
         self.process_change_callback: _CallbackFunctionType = callback
-    
+
     @abstractmethod
     def listen_forever(self):
         pass
@@ -48,12 +48,16 @@ class WindowsActiveWindowListener(BaseActiveWindowListener):
         if event != win32utils.EVENT_SYSTEM_FOREGROUND and event != win32utils.EVENT_SYSTEM_MINIMIZEEND:
             return
 
-        logger.debug('Active window %s', win32utils.get_window_text(hwnd))
+        window_title = win32utils.get_window_text(hwnd)
+        logger.debug('Active window %s', window_title)
 
         pid = win32utils.get_thread_process_id(dwEventThread)
         logger.debug('Active window PID %d', pid)
         if pid is not None:
             path = win32utils.get_process_filename(pid)
+            if path.endswith('\\explorer.exe') and \
+                    (window_title == b'' or window_title == b'Task Switching'):
+                return
             logger.debug('Active window path %s', path)
             self.process_change_callback(path)
 
