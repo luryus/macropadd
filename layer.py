@@ -105,6 +105,8 @@ def create_default_layer() -> Layer:
 def parse_layers(layer_yaml_file: str) -> Dict[str, Layer]:
     with open(layer_yaml_file, "r") as f:
         file_content: dict = yaml.safe_load(f)
+        if not isinstance(file_content, dict):
+            raise Exception("YAML load failed")
 
     layers = {}
     for layer_key, layer_spec in file_content.items():
@@ -133,11 +135,13 @@ class LayerFileWatcher:
             self.last_trigger_time = time.time()
 
             try:
+                # Hack: wait a bit first so that the file is really written
+                time.sleep(0.1)
                 logger.info("Reloading layers file %s...", self.filename)
                 new_layers = parse_layers(self.filename)
                 self.cb(new_layers)
             except Exception as e:
-                logger.warning("Loading new layers failed: %s", e)
+                logger.exception("Loading layers file failed")
 
     def __init__(
         self, filename: str, new_layers_callback: Callable[[Dict[str, Layer]], None]
