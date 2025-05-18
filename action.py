@@ -79,7 +79,7 @@ class SequentialAction(BaseAction):
                 if a is None:
                     raise ValueError('Could not parse step action')
                 step_actions.append(a)
-            return SequentialAction(step_actions, data.get('name', ''), int(data.get('delayMs', 20)))
+            return SequentialAction(step_actions, data.get('name', ''), int(data['sequence'].get('delayMs', 20)))
 
         return None
 
