@@ -33,15 +33,13 @@ class NoopHal(HalBase):
 
 class WindowsHal(HalBase):
     def __init__(self):
-        self.__hid_read_thread = None
         self.__hid_thread_stop_event = Event()
-        self.__hid_send_thread = None
+        self.__hid_thread = None
         self.__global_hotkey_thread = None
 
         super().__init__()
         self.__start_hotkey_handler_thread()
-        self.__start_hid_read_thread()
-        self.__start_hid_sender_thread()
+        self.__start_hid_thread()
 
     def close(self):
         self.__hid_thread_stop_event.set()
@@ -86,13 +84,9 @@ class WindowsHal(HalBase):
         self.__global_hotkey_thread = Thread(None, self.__global_hotkey_thread_loop, name="hotkey_thread", daemon=True)
         self.__global_hotkey_thread.start()
 
-    def __start_hid_read_thread(self):
-        self.__hid_read_thread = Thread(None, self.__hid_read_thread_loop, name="hid_thread", daemon=True)
-        self.__hid_read_thread.start()
-
-    def __start_hid_sender_thread(self):
-        self.__hid_send_thread = Thread(None, self.__hid_send_thread_loop, name="hid_sender", daemon=True)
-        self.__hid_send_thread.start()
+    def __start_hid_thread(self):
+        self.__hid_thread = Thread(None, self.__hid_thread_loop, name="hid_thread", daemon=True)
+        self.__hid_thread.start()
 
     @classmethod
     def __parse_encoder_hid_data(cls, data: List[int]) -> Tuple[Optional[int], Optional[bool]]:
@@ -101,78 +95,58 @@ class WindowsHal(HalBase):
             return data[1], bool(data[2])
         return None, None
 
-    def __hid_send_thread_loop(self):
+    def __hid_thread_loop(self):
         import hid
-        logger = logging.getLogger('HID sender')
-        # Main loop
+        logger = logging.getLogger('HID thread')
         while not self.__hid_thread_stop_event.is_set():
             try:
-                # Usage page 0x14 & Usage 2 == Auxiliary display
+                # Usage page 0x14 & Usage 2 == Auxiliary display (write)
+                # Usage page 1 & Usage 8 == Multi-axis controller (read)
                 devs = [d for d in hid.enumerate(vendor_id=0x2e8a, product_id=0xffee)
-                        if d['usage_page'] == 0x14 and d['usage'] == 0x02]
+                        if (d['usage_page'], d['usage']) in [(0x14, 0x02), (1, 8)]]
                 if not devs:
                     logger.debug("Macropad devices not found")
                     time.sleep(1)
                     continue
 
-                # Only support one device connected at a time, so get the first one
-                dev = hid.device()
-                # hid.enumerate returns a list of dicts. Each dict represents a device.
-                # The path is available under the 'path' key
-                dev.open_path(devs[0]['path'])
-                dev.set_nonblocking(True)
+                # Only support one device connected at a time, so get the first one for both read and write
+                read_path = next((d['path'] for d in devs if (d['usage_page'], d['usage']) == (1, 8)), None)
+                write_path = next((d['path'] for d in devs if (d['usage_page'], d['usage']) == (0x14, 0x02)), None)
+
+                if read_path is None or write_path is None:
+                    logger.debug("Macropad devices not found (read_path: %s, write_path: %s)", read_path, write_path)
+                    time.sleep(1)
+                    continue
+
+                read_dev = hid.device()
+                read_dev.open_path(read_path)
+                read_dev.set_nonblocking(True)
+
+                write_dev = hid.device()
+                write_dev.open_path(write_path)
+                write_dev.set_nonblocking(True)
 
                 try:
-                    logger.info("Connected to %s", dev.get_product_string())
+                    logger.info("Connected to %s (read) and %s (write)",
+                                read_dev.get_product_string(), write_dev.get_product_string())
                     while not self.__hid_thread_stop_event.is_set():
+                        # Handle outgoing messages
                         try:
-                            msg = self.msg_queue.get(block=True, timeout=1)
+                            msg = self.msg_queue.get(block=False)
+                            if not isinstance(msg, (list, bytes)):
+                                logger.warning("Invalid message %s", msg)
+                                continue
+                            assert msg[0] in [0x03, 0x04]
+                            logger.debug("Sending %d byte message %s", len(msg), msg)
+                            res = write_dev.write(msg)
+                            if res == -1:
+                                logger.warning("HID write errored (%s). Device probably disconnected. Reconnecting...", dev.error())
+                                break
                         except Empty:
-                            continue
-                    
-                        if not isinstance(msg, list) and not isinstance(msg, bytes):
-                            logger.warning("Invalid message %s", msg)
-                            continue
+                            pass
 
-                        assert msg[0] in [0x03, 0x04]
-
-                        logger.debug("Sending %d byte message %s", len(msg), msg)
-
-                        res = dev.write(msg)
-                        if res == -1:
-                            logger.warn("HID write errored (%s). Device probably disconnected. Reconnecting...", dev.error())
-                            break
-                finally:
-                    dev.close()
-            except IOError as e:
-                logger.error("HID send thread loop failed", exc_info=e)
-
-    def __hid_read_thread_loop(self):
-        import hid
-        # Main loop
-        while not self.__hid_thread_stop_event.is_set():
-            try:
-                # Usage page 1 & Usage 8 == Multi-axis controller
-                devs = [d for d in hid.enumerate(vendor_id=0x2e8a, product_id=0xffee)
-                        if d['usage_page'] == 1 and d['usage'] == 8]
-                if not devs:
-                    logger.debug("Macropad devices not found")
-                    time.sleep(1)
-                    continue
-                
-                # Only support one device connected at a time, so get the first one
-                dev = hid.device()
-                # hid.enumerate returns a list of dicts. Each dict represents a device.
-                # The path is available under the 'path' key
-                dev.open_path(devs[0]['path'])
-                dev.set_nonblocking(True)
-
-                try:
-                    logger.debug("Connected to %s", dev.get_product_string())
-                    
-                    # Read loop
-                    while not self.__hid_thread_stop_event.is_set():
-                        data = dev.read(64)
+                        # Handle incoming data
+                        data = read_dev.read(64, timeout_ms=50)
                         if data:
                             logger.debug("Received data: %s", data)
                             parsed_rot, parsed_btn = WindowsHal.__parse_encoder_hid_data(data)
@@ -183,10 +157,10 @@ class WindowsHal(HalBase):
                         else:
                             time.sleep(0.001)
                 finally:
-                    dev.close()
-
+                    write_dev.close()
+                    read_dev.close()
             except IOError as e:
-                print(e)
+                logger.error("HID thread loop failed", exc_info=e)
 
     def __global_hotkey_thread_loop(self):
         import win32utils
