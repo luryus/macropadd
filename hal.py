@@ -21,7 +21,7 @@ class HalBase(ABC):
         self.encoder_handler = None
 
         self.msg_queue = Queue(maxsize=6)
-    
+
     @abstractmethod
     def close(self):
         pass
@@ -47,7 +47,7 @@ class WindowsHal(HalBase):
     def send_profile_name(self, name: str):
         data = bytes([3]) + name[:18].encode('ascii', errors='ignore')
         if len(data) < 19:
-            data += b'\0' * (19 - len(data)) 
+            data += b'\0' * (19 - len(data))
         assert len(data) == 19
         try:
             self.msg_queue.put(data, timeout=0.1)
@@ -68,7 +68,7 @@ class WindowsHal(HalBase):
             else:
                 name = '    '
             data += name.encode('ascii', errors='ignore')
-        
+
         assert len(data) == (1 + 4*12)
         try:
             self.msg_queue.put(data, timeout=0.1)
@@ -140,7 +140,7 @@ class WindowsHal(HalBase):
                             logger.debug("Sending %d byte message %s", len(msg), msg)
                             res = write_dev.write(msg)
                             if res == -1:
-                                logger.warning("HID write errored (%s). Device probably disconnected. Reconnecting...", dev.error())
+                                logger.warning("HID write errored (%s). Device probably disconnected. Reconnecting...", write_dev.error())
                                 break
                         except Empty:
                             pass
@@ -195,4 +195,4 @@ class WindowsHal(HalBase):
                 unreg_hotkeys()
                 self.__shortcut_handler(f'F{n}')
                 reg_hotkeys()
-            
+
