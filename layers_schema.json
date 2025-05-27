@@ -30,6 +30,9 @@
         },
         {
           "$ref": "#/definitions/activateWindowAction"
+        },
+        {
+          "$ref": "#/definitions/repeatAction"
         }
       ]
     },
@@ -179,6 +182,37 @@
             }
           },
           "required": ["sequence"]
+        }
+      ]
+    },
+    "repeatAction": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/baseAction"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "repeat": {
+              "type": "object",
+              "properties": {
+                "delayMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "action": {
+                  "type": "object",
+                  "$ref": "#/definitions/action"
+                }
+              },
+              "required": ["action", "count"]
+            }
+          },
+          "required": ["repeat"]
         }
       ]
     }

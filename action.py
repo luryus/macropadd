@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
+from typing import List, Optional 
 import keyboard
 from logging import getLogger
 import time
@@ -19,8 +20,9 @@ class BaseAction(ABC):
     def run(self):
         pass
 
-    @abstractstaticmethod
-    def parse(data: dict):
+    @staticmethod
+    @abstractmethod
+    def parse(data: dict) -> Optional['BaseAction']:
         pass
 
 class HotkeyAction(BaseAction):
@@ -51,13 +53,42 @@ class TypeAction(BaseAction):
     def run(self):
         keyboard.write(self.text)
 
+    @staticmethod
     def parse(data: dict):
         if 'type' in data:
             return TypeAction(data['type'], data.get('name', ''))
         return None
 
+class RepeatAction(BaseAction):
+    def __init__(self, inner: BaseAction, name: str, count: int, delay_ms: int):
+        super().__init__(name)
+        self.inner = inner
+        self.delay_ms = delay_ms
+        self.count = count
+    
+    def __str__(self):
+        return f'Repeat({self.count}, {self.inner})'
+
+    def run(self):
+        delay = float(self.delay_ms) / 1000
+        for i in range(self.count):
+            time.sleep(delay)
+            self.inner.run()
+    
+    @staticmethod
+    def parse(data: dict):
+        if 'repeat' in data:
+            inner = parse_action(data['repeat']['action'])
+            if inner is None:
+                raise ValueError('Could not parse repeat action')
+            count = int(data['repeat'].get('count', 0))
+            delay_ms = int(data['repeat'].get('delayMs', 20))
+            return RepeatAction(inner, data.get('name', ''), count, delay_ms)
+        return None
+
+
 class SequentialAction(BaseAction):
-    def __init__(self, actions: str, name: str, delay_ms: int):
+    def __init__(self, actions: List[BaseAction], name: str, delay_ms: int):
         super().__init__(name)
         self.actions = actions
         self.delay_ms = delay_ms
@@ -71,6 +102,7 @@ class SequentialAction(BaseAction):
             time.sleep(delay)
             a.run()
 
+    @staticmethod
     def parse(data: dict):
         if 'sequence' in data:
             step_actions = []
@@ -129,7 +161,7 @@ class ActivateWindowAction(BaseAction):
         logger.debug("Existing window not found for %s, launching...", self.program_path)
         os.startfile(self.program_path)
         
-
+    @staticmethod
     def parse(data: dict):
         if 'activateWindow' in data:
             return ActivateWindowAction(data['activateWindow'], data.get('name', ''))
@@ -143,7 +175,8 @@ def parse_action(spec: dict):
     a = HotkeyAction.parse(spec) or \
         TypeAction.parse(spec) or \
         ActivateWindowAction.parse(spec) or \
-        SequentialAction.parse(spec)
+        SequentialAction.parse(spec) or \
+        RepeatAction.parse(spec)
 
     if a is None:
         logger.warning("Invalid action %s", spec)
